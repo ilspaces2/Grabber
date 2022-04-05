@@ -54,16 +54,10 @@ public class PsqlStore implements Store, AutoCloseable {
     public List<Post> getAll() {
         List<Post> posts = new ArrayList<>();
         try (PreparedStatement prepare = cnn.prepareStatement("select * from post")) {
-            prepare.executeQuery();
-            try (ResultSet resultSet = prepare.getResultSet()) {
-                while (resultSet.next()) {
-                    posts.add(new Post(
-                            resultSet.getInt(1),
-                            resultSet.getString(2),
-                            resultSet.getString(3),
-                            resultSet.getString(4),
-                            resultSet.getTimestamp(5).toLocalDateTime()
-                    ));
+            try (ResultSet resultSet = prepare.executeQuery()) {
+                Post post;
+                while ((post = createPost(resultSet)) != null) {
+                    posts.add(post);
                 }
             }
         } catch (Exception e) {
@@ -77,17 +71,8 @@ public class PsqlStore implements Store, AutoCloseable {
         Post post = null;
         try (PreparedStatement prepare = cnn.prepareStatement("select * from post where id=?")) {
             prepare.setInt(1, id);
-            prepare.executeQuery();
-            try (ResultSet resultSet = prepare.getResultSet()) {
-                if (resultSet.next()) {
-                    post = new Post(
-                            resultSet.getInt(1),
-                            resultSet.getString(2),
-                            resultSet.getString(3),
-                            resultSet.getString(4),
-                            resultSet.getTimestamp(5).toLocalDateTime()
-                    );
-                }
+            try (ResultSet resultSet = prepare.executeQuery()) {
+                post = createPost(resultSet);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -110,6 +95,23 @@ public class PsqlStore implements Store, AutoCloseable {
             e.printStackTrace();
         }
         return config;
+    }
+
+    private Post createPost(ResultSet resultSet) {
+        Post post = null;
+        try {
+            if (resultSet.next()) {
+                post = new Post(
+                        resultSet.getInt(1),
+                        resultSet.getString(2),
+                        resultSet.getString(3),
+                        resultSet.getString(4),
+                        resultSet.getTimestamp(5).toLocalDateTime());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return post;
     }
 
     public static void main(String[] args) {
