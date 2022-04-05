@@ -41,9 +41,9 @@ public class HabrCareerParse implements Parse {
 
     private static final String PAGE_LINK = String.format("%s/vacancies/java_developer", SOURCE_LINK);
 
-    private final DateTimeParser dateTimeParser;
+    public static final int NUM_PAGE = 5;
 
-    private int numPage = 1;
+    private final DateTimeParser dateTimeParser;
 
     public HabrCareerParse(DateTimeParser dateTimeParser) {
         this.dateTimeParser = dateTimeParser;
@@ -51,7 +51,6 @@ public class HabrCareerParse implements Parse {
 
     public static void main(String[] args) {
         HabrCareerParse habrCareerParse = new HabrCareerParse(new HarbCareerDateTimeParser());
-        habrCareerParse.setNumPage(5);
         habrCareerParse.list(PAGE_LINK).forEach(System.out::println);
     }
 
@@ -71,29 +70,13 @@ public class HabrCareerParse implements Parse {
 
     @Override
     public List<Post> list(String link) {
-        if (numPage < 1) {
-            throw new IllegalArgumentException("NumPage less 1");
-        }
         List<Post> posts = new ArrayList<>();
         try {
-            for (int count = 1; count <= numPage; count++) {
+            for (int count = 1; count <= NUM_PAGE; count++) {
                 Connection connection = Jsoup.connect(link + "?page=" + count);
                 Document document = connection.get();
                 Elements rows = document.select(".vacancy-card__inner");
-                rows.forEach(row -> {
-                    Element titleElement = row.select(".vacancy-card__title").first();
-                    Element linkElement = titleElement.child(0);
-                    String vacancyName = titleElement.text();
-                    Element dateElement = row.select(".vacancy-card__date").first();
-                    Element timeElement = dateElement.child(0);
-                    String linkPost = String.format("%s%s", SOURCE_LINK, linkElement.attr("href"));
-                    posts.add(new Post(
-                            vacancyName,
-                            linkPost,
-                            retrieveDescription(linkPost),
-                            dateTimeParser.parse(timeElement.attr("datetime"))
-                    ));
-                });
+                rows.forEach(row -> posts.add(parsePost(row)));
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -101,11 +84,18 @@ public class HabrCareerParse implements Parse {
         return List.copyOf(posts);
     }
 
-    public int getNumPage() {
-        return numPage;
-    }
-
-    public void setNumPage(int numPage) {
-        this.numPage = numPage;
+    private Post parsePost(Element row) {
+        Element titleElement = row.select(".vacancy-card__title").first();
+        Element linkElement = titleElement.child(0);
+        String vacancyName = titleElement.text();
+        String linkPost = String.format("%s%s", SOURCE_LINK, linkElement.attr("href"));
+        Element dateElement = row.select(".vacancy-card__date").first();
+        Element timeElement = dateElement.child(0);
+        return new Post(
+                vacancyName,
+                linkPost,
+                retrieveDescription(linkPost),
+                dateTimeParser.parse(timeElement.attr("datetime"))
+        );
     }
 }
